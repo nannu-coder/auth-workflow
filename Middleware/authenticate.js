@@ -9,8 +9,8 @@ const authenTicate = async (req, res, next) => {
   }
 
   try {
-    const { name, id, role } = await verifyJWT({ token });
-    req.user = { name, id, role };
+    const { payload } = await verifyJWT({ token });
+    req.user = { name: payload.name, id: payload.id, role: payload.role };
     next();
   } catch (error) {
     throw new unAuthenticateError("Invalid Authorization");

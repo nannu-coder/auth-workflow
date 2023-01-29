@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const User = require("../models/userModel");
 const { BadRequestError, unAuthenticateError } = require("../Errors");
 const { cookiesReponse } = require("../Utils/JWT");
+const crypto = require("crypto");
 
 const register = async (req, res) => {
   const { name, email, password } = req.body;
@@ -19,17 +20,28 @@ const register = async (req, res) => {
 
   const role = isFirst ? "admin" : "user";
 
-  const user = await User.create({ name, email, password, role });
+  const verificationToken = crypto.randomBytes(45).toString("hex");
 
-  const tokenUser = {
+  const user = await await User.create({
     name,
-    id: user._id,
+    email,
+    password,
     role,
-  };
+    verificationToken,
+  });
 
-  cookiesReponse({ res, user: tokenUser });
+  // const tokenUser = {
+  //   name,
+  //   id: user._id,
+  //   role,
+  // };
 
-  res.status(StatusCodes.CREATED).json({ user });
+  // cookiesReponse({ res, user: tokenUser });
+
+  res.status(StatusCodes.CREATED).json({
+    status: "Success! Please Check Email to verify Account",
+    Verifytoken: user.verificationToken,
+  });
 };
 
 const login = async (req, res) => {
@@ -38,6 +50,8 @@ const login = async (req, res) => {
   if (!email || !password) {
     throw new BadRequestError("Please enter email and password");
   }
+
+  console.log(email);
 
   const user = await User.findOne({ email });
 
@@ -49,6 +63,10 @@ const login = async (req, res) => {
 
   if (!isPasswordMatch) {
     throw new unAuthenticateError("Invalid Credentials");
+  }
+
+  if (!user.isVerified) {
+    throw new unAuthenticateError("Please verify your Account");
   }
 
   const tokenUser = {
@@ -64,6 +82,28 @@ const login = async (req, res) => {
     .json({ id: user._id, name: user.name, email: user.email });
 };
 
+const verifyToken = async (req, res) => {
+  const { verifytoken, email } = req.body;
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw new unAuthenticateError("Verification Failed");
+  }
+
+  if (verifytoken !== user.verificationToken) {
+    throw new unAuthenticateError("Verification Failed");
+  }
+
+  user.isVerified = true;
+  user.verified = Date.now();
+  user.verificationToken = "";
+
+  await user.save();
+
+  res.status(StatusCodes.OK).json({ msg: "Email Verified" });
+};
+
 const logout = async (req, res) => {
   res.cookie("token", "logout", {
     httpOnly: true,
@@ -73,4 +113,4 @@ const logout = async (req, res) => {
   res.status(StatusCodes.OK).json({ msg: "User Logged Out" });
 };
 
-module.exports = { register, login, logout };
+module.exports = { register, login, logout, verifyToken };

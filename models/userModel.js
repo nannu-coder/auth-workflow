@@ -32,6 +32,12 @@ const UserSchema = new mongoose.Schema(
       enum: ["admin", "user", "modaretor"],
       default: "user",
     },
+    verificationToken: String,
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verified: Date,
   },
   {
     timestamps: true,
@@ -39,6 +45,7 @@ const UserSchema = new mongoose.Schema(
 );
 
 UserSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return;
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 

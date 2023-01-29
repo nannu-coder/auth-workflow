@@ -1,8 +1,7 @@
 const { StatusCodes } = require("http-status-codes");
 
 const showMe = async (req, res) => {
-  console.log(req.signedCookies.token);
-  res.send("show me");
+  res.status(StatusCodes.OK).json(req.user);
 };
 
 module.exports = { showMe };
