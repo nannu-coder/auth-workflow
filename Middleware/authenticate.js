@@ -1,16 +1,38 @@
 const { unAuthenticateError } = require("../Errors");
-const { verifyJWT } = require("../Utils/JWT");
+const { verifyJWT, cookiesReponse } = require("../Utils/JWT");
+const Token = require("../models/tokenModel");
 
 const authenTicate = async (req, res, next) => {
-  const token = req.signedCookies.token;
-
-  if (!token) {
-    throw new unAuthenticateError("Invalid Authorization");
-  }
+  const { accessToken, refreshToken } = req.signedCookies;
+  // if (!token) {
+  //   throw new unAuthenticateError("Invalid Authorization");
+  // }
 
   try {
-    const { payload } = await verifyJWT({ token });
-    req.user = { name: payload.name, id: payload.id, role: payload.role };
+    if (accessToken) {
+      const { payload } = verifyJWT(accessToken);
+      req.user = payload.user;
+      return next();
+    }
+
+    const { payload } = verifyJWT(refreshToken);
+    const existingToken = await Token.findOne({
+      user: payload.user.id,
+      refreshToken: payload.refreshToken,
+    });
+
+    if (!existingToken || !existingToken?.isValid) {
+      throw new unAuthenticateError("Authentication failed");
+    }
+
+    cookiesReponse({
+      res,
+      user: payload.user,
+      refreshToken: existingToken.refreshToken,
+    });
+
+    req.user = payload.user;
+
     next();
   } catch (error) {
     throw new unAuthenticateError("Invalid Authorization");
